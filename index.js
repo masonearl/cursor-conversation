@@ -13,7 +13,7 @@ import {
   CallToolRequestSchema,
   ListToolsRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { ElevenLabsClient } from 'elevenlabs';
+import { ElevenLabsClient } from '@elevenlabs/elevenlabs-js';
 
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
 if (!ELEVENLABS_API_KEY) {
@@ -167,8 +167,18 @@ class CursorElevenLabsServer {
     const { text, voiceId } = args;
     
     try {
+      // Get available voices if no voiceId provided
+      let finalVoiceId = voiceId;
+      if (!finalVoiceId) {
+        const voices = await client.voices.getAll();
+        // Use the first available voice, or a default one
+        finalVoiceId = voices.voices && voices.voices.length > 0 
+          ? voices.voices[0].voice_id 
+          : '21m00Tcm4TlvDq8ikWAM'; // Default voice ID (Rachel)
+      }
+
       // Use ElevenLabs TTS API
-      const audio = await client.textToSpeech.convert(voiceId || 'default', {
+      const audio = await client.textToSpeech.convert(finalVoiceId, {
         text: text,
         model_id: 'eleven_monolingual_v1',
       });
@@ -185,11 +195,11 @@ class CursorElevenLabsServer {
         content: [
           {
             type: 'text',
-            text: `Generated audio for: "${text.substring(0, 50)}..."`,
+            text: `Generated audio for: "${text.substring(0, 50)}${text.length > 50 ? '...' : ''}"`,
           },
           {
             type: 'text',
-            text: `Audio data (base64): ${base64Audio.substring(0, 100)}...`,
+            text: `Audio data (base64, first 100 chars): ${base64Audio.substring(0, 100)}...`,
           },
         ],
       };
